@@ -1,11 +1,12 @@
 package main
 
 import (
+	"fmt"
+	"github.com/Lissless/poke-optimizer-api/pkmn"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"log"
 	"net/http"
-	"poke-optimizer-api/pkmn"
 )
 
 func main() {
@@ -21,14 +22,10 @@ func main() {
 
 	srv := &http.Server{
 		Handler: handler,
-		Addr:    ":80", // The port to listen into
+		Addr:    ":8080", // The port to listen into
 	}
 
 	log.Println("Ok we about to listen")
 
 	log.Fatal(srv.ListenAndServe())
 }
-
-// func getPokemon(w http.ResponseWriter, r *http.Request) {
-// 	log.Println("We did it!")
-// }

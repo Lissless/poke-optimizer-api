@@ -1,4 +1,4 @@
-module poke-optimizer-api
+module github.com/Lissless/poke-optimizer-api
 
 go 1.21.5
 
