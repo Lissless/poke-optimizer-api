@@ -3,7 +3,7 @@ package pkmn
 func MakePokemon(dataMap map[string]interface{}, name string) Pokemon {
 	pkmn := Pokemon{
 		Name:      name,
-		ID:        dataMap["id"].(float64),
+		PokedexID: dataMap["id"].(float64),
 		Types:     makeTypesArray(dataMap["types"].([]interface{})),
 		Abilities: makeAbilitiesArray(dataMap["abilities"].([]interface{})),
 	}

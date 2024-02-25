@@ -13,7 +13,7 @@ func main() {
 	r := http.NewServeMux()
 
 	r.Handle("/pokemon/", &pkmn.PokemonHandler{})
-	r.Handle("/pc", &pc.PCHandler{
+	r.Handle("/pc/", &pc.PCHandler{
 		ActiveTeam: pc.PokemonTeam{
 			PokemonTeam: make([]pkmn.ActivePokemon, 0),
 		},
