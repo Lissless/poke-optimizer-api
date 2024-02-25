@@ -5,14 +5,13 @@ import (
 	"net/http"
 
 	"github.com/Lissless/poke-optimizer-api/pkmn"
-	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
 
 func main() {
-	r := mux.NewRouter()
+	r := http.NewServeMux()
 
-	r.HandleFunc("/pokemon/{pkmn_name}", pkmn.GetPokemon).Methods("GET")
+	r.Handle("/pokemon/", &pkmn.PokemonHandler{})
 
 	// Solves Cross Origin Access Issue
 	c := cors.New(cors.Options{

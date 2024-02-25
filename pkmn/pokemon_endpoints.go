@@ -2,44 +2,76 @@ package pkmn
 
 import (
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
+
+	"github.com/Lissless/poke-optimizer-api/pkmn_errors"
 )
 
 const pokeApiURL = "https://pokeapi.co/api/v2/pokemon/"
 
-// Todo: find a way to catcch errors and write custom responses for them
-func GetPokemon(w http.ResponseWriter, r *http.Request) {
+var (
+	PokemonGet = regexp.MustCompile(`/pokemon/([[:alpha:]]+)$`)
+)
+
+type PokemonHandler struct{}
+
+func (ph *PokemonHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.Method == http.MethodGet && PokemonGet.MatchString(r.URL.Path):
+		ph.GetPokemon(w, r)
+		return
+	default:
+		log.Printf("Invalid route was attempted route: %s", r.URL)
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Invalid request")
+	}
+}
+
+func (ph *PokemonHandler) GetPokemon(w http.ResponseWriter, r *http.Request) {
 	urlArr := strings.Split(r.URL.Path, "/")
 	pokemonName := strings.ToLower(urlArr[len(urlArr)-1])
 	log.Printf("Getting data to create the Pokemon: %s", pokemonName)
 	getPokemonURL := pokeApiURL + pokemonName
+
 	req, err := http.NewRequest("GET", getPokemonURL, nil)
 	if err != nil {
 		log.Printf("Creating a request to GET the url: %s failed, error: %s", getPokemonURL, err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed creating request")
 		return
 	}
 
 	client := &http.Client{}
 
-	resp, _ := client.Do(req)
-	// if err != nil {
-	// 	return err
-	// }
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Doing the request to GET the url: %s failed, error: %s", getPokemonURL, err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed executing request")
+		return
+	}
 	defer resp.Body.Close()
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 	dataMap := make(map[string]interface{})
 
 	err = json.Unmarshal(body, &dataMap)
+	if err != nil {
+		log.Printf("Unmarshalling the request to GET the url: %s failed, error: %s", getPokemonURL, err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed reading request")
+		return
+	}
 
 	pkmn := MakePokemon(dataMap, pokemonName)
 
-	fmt.Println("Pokemon id is {}", pkmn.ID)
 	write_resp, err := json.Marshal(pkmn)
+	if err != nil {
+		log.Printf("Marshalling the request to GET the url: %s failed, error: %s", getPokemonURL, err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed packaging request")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 	w.Write(write_resp)
-	fmt.Println("done")
 }
