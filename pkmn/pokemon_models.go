@@ -9,6 +9,13 @@ type Pokemon struct {
 	Abilities []PokemonAbility `json:"abilities"`
 }
 
+type ActivePokemon struct {
+	Name      string         `json:"name"`
+	ID        float64        `json:"id"`
+	Types     []PokemonType  `json:"types"`
+	Abilities PokemonAbility `json:"ability"`
+}
+
 type PokemonType struct {
 	Name string  `json:"type_name"`
 	Slot float64 `json:"slot"`
