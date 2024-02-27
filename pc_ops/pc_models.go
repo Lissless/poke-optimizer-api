@@ -13,7 +13,7 @@ type PokemonStorageBox struct {
 	PCBox map[string]pkmn.ActivePokemon `json:"pc_box_pokemon"`
 }
 
-type PokemonTransfer struct {
+type PokemonLocation struct {
 	Location   string `json:"location"`
 	PokemonUID string `json:"uid"`
 }
