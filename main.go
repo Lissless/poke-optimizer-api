@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	pc "github.com/Lissless/poke-optimizer-api/pc_ops"
 	"github.com/Lissless/poke-optimizer-api/pkmn"
 	"github.com/rs/cors"
 )
@@ -12,6 +13,14 @@ func main() {
 	r := http.NewServeMux()
 
 	r.Handle("/pokemon/", &pkmn.PokemonHandler{})
+	r.Handle("/pc/", &pc.PCHandler{
+		ActiveTeam: pc.PokemonTeam{
+			PokemonTeam: make(map[string]pkmn.ActivePokemon),
+		},
+		PkmnBox: pc.PokemonStorageBox{
+			PCBox: make(map[string]pkmn.ActivePokemon),
+		},
+	})
 
 	// Solves Cross Origin Access Issue
 	c := cors.New(cors.Options{

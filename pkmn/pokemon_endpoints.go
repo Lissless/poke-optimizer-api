@@ -26,7 +26,7 @@ func (ph *PokemonHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	default:
 		log.Printf("Invalid route was attempted route: %s", r.URL)
-		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Invalid request")
+		pkmn_errors.ErrorHandler(w, r, http.StatusBadRequest, "Invalid request")
 	}
 }
 
@@ -53,7 +53,12 @@ func (ph *PokemonHandler) GetPokemon(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Reading request body to GET the url: %s failed, error: %s", getPokemonURL, err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed reading request body")
+		return
+	}
 	dataMap := make(map[string]interface{})
 
 	err = json.Unmarshal(body, &dataMap)
@@ -68,7 +73,7 @@ func (ph *PokemonHandler) GetPokemon(w http.ResponseWriter, r *http.Request) {
 	write_resp, err := json.Marshal(pkmn)
 	if err != nil {
 		log.Printf("Marshalling the request to GET the url: %s failed, error: %s", getPokemonURL, err.Error())
-		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed packaging request")
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed packaging pokemon request")
 		return
 	}
 
