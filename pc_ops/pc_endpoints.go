@@ -20,15 +20,16 @@ const (
 	BOX_PATH         = "/pc/box"
 	TRANSFER_PATH    = "/pc/transfer"
 	RELEASE_PATH     = "/pc/release"
+	POKEMON_PATH     = "/pc/pokemon"
 )
 
 func (pc *PCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
-	case r.Method == http.MethodGet && r.URL.Path == ACTIVE_TEAM_PATH:
-		pc.GetPokemonTeam(w, r)
+	case r.Method == http.MethodGet && (r.URL.Path == ACTIVE_TEAM_PATH || r.URL.Path == BOX_PATH):
+		pc.GetPokemonStorageLocation(w, r)
 		return
-	case r.Method == http.MethodGet && r.URL.Path == BOX_PATH:
-		pc.GetPokemonBox(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == POKEMON_PATH:
+		pc.GetSpecificPokemon(w, r)
 		return
 	case r.Method == http.MethodPut && r.URL.Path == ACTIVE_TEAM_PATH:
 		pc.AddPokemon(w, r, true)
@@ -48,28 +49,38 @@ func (pc *PCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (pc *PCHandler) GetPokemonTeam(w http.ResponseWriter, r *http.Request) {
-	write_resp, err := json.Marshal(pc.ActiveTeam)
+func (pc *PCHandler) GetPokemonStorageLocation(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("Marshalling the request to get a pokemon team: failed, error: %s", err.Error())
-		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed packaging pokemon team request")
+		log.Printf("Get Pokemon location info for storage info: failed, error: %s", err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed reading get information request body")
+		return
+	}
+	defer r.Body.Close()
+
+	pkmnLocation := PokemonLocation{}
+	err = json.Unmarshal(body, &pkmnLocation)
+	if err != nil {
+		log.Printf("Unmarshalling the Pokemon location for storage info failed, error: %s", err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed reading get information request body")
 		return
 	}
 
-	log.Println("Retrieved Pokemon Active Team Information")
-	w.WriteHeader(http.StatusOK)
-	w.Write(write_resp)
-}
+	var write_resp []byte
+	switch pkmnLocation.Location {
+	case "team":
+		write_resp, err = json.Marshal(pc.ActiveTeam)
+	case "box":
+		write_resp, err = json.Marshal(pc.PkmnBox)
+	}
 
-func (pc *PCHandler) GetPokemonBox(w http.ResponseWriter, r *http.Request) {
-	write_resp, err := json.Marshal(pc.PkmnBox)
 	if err != nil {
-		log.Printf("Marshalling the request to get the pokemon box failed, error: %s", err.Error())
+		log.Printf("Marshalling the request to get the pokemon %s failed, error: %s", pkmnLocation.Location, err.Error())
 		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed packaging pokemon box request")
 		return
 	}
 
-	log.Println("Retrieved Pokemon Box Information")
+	log.Printf("Retrieved information on the pokemon %s", pkmnLocation.Location)
 	w.WriteHeader(http.StatusOK)
 	w.Write(write_resp)
 }
@@ -221,6 +232,52 @@ func (pc *PCHandler) ReleasePokemon(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Successfully removed a pokemon from the %s, uid: %s", pkmnLocation.Location, pkmnLocation.PokemonUID)
+	w.WriteHeader(http.StatusOK)
+	w.Write(write_resp)
+}
+
+func (pc *PCHandler) GetSpecificPokemon(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Get Pokemon location info for storage info: failed, error: %s", err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed reading get information request body")
+		return
+	}
+	defer r.Body.Close()
+
+	pkmnLocation := PokemonLocation{}
+	err = json.Unmarshal(body, &pkmnLocation)
+	if err != nil {
+		log.Printf("Unmarshalling the Pokemon location for storage info failed, error: %s", err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed reading get information request body")
+		return
+	}
+
+	var write_resp []byte
+	var pkmn pkmn.ActivePokemon
+	valid := false
+	switch pkmnLocation.Location {
+	case "team":
+		pkmn, valid = pc.ActiveTeam.GetPokemon(pkmnLocation.PokemonUID)
+		write_resp, err = json.Marshal(pkmn)
+	case "box":
+		pkmn, valid = pc.PkmnBox.GetPokemon(pkmnLocation.PokemonUID)
+		write_resp, err = json.Marshal(pkmn)
+	}
+
+	if !valid {
+		log.Printf("Failed to retrieve a pokemon from the %s, pokemon uid %s", pkmnLocation.Location, pkmnLocation.PokemonUID)
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed to retrieve the desired pokemon")
+		return
+	}
+
+	if err != nil {
+		log.Printf("Marshalling the request to retrieve pokemon from the %s, error: %s", pkmnLocation.Location, err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed packaging pokemon pc retrieval request")
+		return
+	}
+
+	log.Printf("Successfully retrieved a pokemon from the %s, uid: %s", pkmnLocation.Location, pkmnLocation.PokemonUID)
 	w.WriteHeader(http.StatusOK)
 	w.Write(write_resp)
 }

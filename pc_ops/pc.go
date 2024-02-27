@@ -38,18 +38,34 @@ func EnforceTeamLimit(pkmnTeam PokemonTeam) bool {
 	return true
 }
 
-func (pt *PokemonTeam) RemovePokemon(PkmnUID string) (pkmn.ActivePokemon, bool) {
+func (pt *PokemonTeam) GetPokemon(PkmnUID string) (pkmn.ActivePokemon, bool) {
 	target := pt.PokemonTeam[PkmnUID]
 	if target.UID == "" {
+		return target, false
+	}
+	return target, true
+}
+
+func (pt *PokemonTeam) RemovePokemon(PkmnUID string) (pkmn.ActivePokemon, bool) {
+	target, valid := pt.GetPokemon(PkmnUID)
+	if !valid {
 		return target, false
 	}
 	delete(pt.PokemonTeam, PkmnUID)
 	return target, true
 }
 
-func (pb *PokemonStorageBox) RemovePokemon(PkmnUID string) (pkmn.ActivePokemon, bool) {
+func (pb *PokemonStorageBox) GetPokemon(PkmnUID string) (pkmn.ActivePokemon, bool) {
 	target := pb.PCBox[PkmnUID]
 	if target.UID == "" {
+		return target, false
+	}
+	return target, true
+}
+
+func (pb *PokemonStorageBox) RemovePokemon(PkmnUID string) (pkmn.ActivePokemon, bool) {
+	target, valid := pb.GetPokemon(PkmnUID)
+	if !valid {
 		return target, false
 	}
 	delete(pb.PCBox, PkmnUID)
