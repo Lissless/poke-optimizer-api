@@ -26,7 +26,7 @@ func (ph *PokemonHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	default:
 		log.Printf("Invalid route was attempted route: %s", r.URL)
-		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Invalid request")
+		pkmn_errors.ErrorHandler(w, r, http.StatusBadRequest, "Invalid request")
 	}
 }
 

@@ -35,9 +35,12 @@ func (pc *PCHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodPut && r.URL.Path == BOX_PATH:
 		pc.AddPokemon(w, r, false)
 		return
+	case r.Method == http.MethodPut && r.URL.Path == TRANSFER_PATH:
+		pc.TransferPokemon(w, r)
+		return
 	default:
 		log.Printf("Invalid route was attempted route: %s", r.URL)
-		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Invalid request")
+		pkmn_errors.ErrorHandler(w, r, http.StatusBadRequest, "Invalid request")
 	}
 }
 
@@ -49,6 +52,7 @@ func (pc *PCHandler) GetPokemonTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println("Retrieved Pokemon Active Team Information")
 	w.WriteHeader(http.StatusOK)
 	w.Write(write_resp)
 }
@@ -61,15 +65,18 @@ func (pc *PCHandler) GetPokemonBox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println("Retrieved Pokemon Box Information")
 	w.WriteHeader(http.StatusOK)
 	w.Write(write_resp)
 }
 
 func (pc *PCHandler) AddPokemon(w http.ResponseWriter, r *http.Request, locTeam bool) {
-	if len(pc.ActiveTeam.PokemonTeam) == 6 && locTeam {
+	if locTeam {
 		// cannot have more than 6 pokemon in a team
-		log.Printf("Attempted to add more pokemon to a full team")
-		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed: current team is too full")
+		if !EnforceTeamLimit(pc.ActiveTeam) {
+			pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed: current team is too full")
+			return
+		}
 	}
 
 	body, err := io.ReadAll(r.Body)
@@ -96,13 +103,15 @@ func (pc *PCHandler) AddPokemon(w http.ResponseWriter, r *http.Request, locTeam 
 	}
 
 	var write_resp []byte
+	var locationString string
 	if locTeam {
-	pc.ActiveTeam.PokemonTeam = append(pc.ActiveTeam.PokemonTeam, newPKMN)
+		pc.ActiveTeam.PokemonTeam[newPKMN.UID] = newPKMN
 		write_resp, err = json.Marshal(pc.ActiveTeam.PokemonTeam)
-
+		locationString = "team"
 	} else {
-		pc.PkmnBox.PCBox = append(pc.PkmnBox.PCBox, newPKMN)
+		pc.PkmnBox.PCBox[newPKMN.UID] = newPKMN
 		write_resp, err = json.Marshal(pc.PkmnBox.PCBox)
+		locationString = "box"
 	}
 
 	if err != nil {
@@ -111,6 +120,58 @@ func (pc *PCHandler) AddPokemon(w http.ResponseWriter, r *http.Request, locTeam 
 		return
 	}
 
+	log.Println("Succcessfully added a new pokemon to the " + locationString)
+	w.WriteHeader(http.StatusOK)
+	w.Write(write_resp)
+}
+
+func (pc *PCHandler) TransferPokemon(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Transfer Pokemon Reading request body to GET the url: failed, error: %s", err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed reading transfer request body")
+		return
+	}
+	defer r.Body.Close()
+
+	transferReq := PokemonTransfer{}
+	err = json.Unmarshal(body, &transferReq)
+	if err != nil {
+		log.Printf("Transfer request body to GET the pokemon for adding to the team or storage: failed, error: %s", err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed reading transfer request body")
+		return
+	}
+
+	var write_resp []byte
+	valid := false
+	switch transferReq.Location {
+	case "team":
+		pc.ActiveTeam, pc.PkmnBox, valid = MovePokemonFromTeamToBox(pc.ActiveTeam, pc.PkmnBox, transferReq.PokemonUID)
+		if !valid {
+			pkmn_errors.ErrorHandler(w, r, http.StatusBadRequest, "Failed to get pokemon from the active team")
+			return
+		}
+		write_resp, err = json.Marshal(pc.ActiveTeam)
+	case "box":
+		pc.ActiveTeam, pc.PkmnBox, valid = MovePokemonFromBoxToTeam(pc.ActiveTeam, pc.PkmnBox, transferReq.PokemonUID)
+		if !valid {
+			pkmn_errors.ErrorHandler(w, r, http.StatusBadRequest, "Failed to get pokemon from the pc box")
+			return
+		}
+		write_resp, err = json.Marshal(pc.PkmnBox)
+	default:
+		log.Printf("Invalid location for transfer was attempted, route: %s", r.URL)
+		pkmn_errors.ErrorHandler(w, r, http.StatusBadRequest, "Invalid transfer location")
+		return
+	}
+
+	if err != nil {
+		log.Printf("Marshalling the request to transfer pokemon, error: %s", err.Error())
+		pkmn_errors.ErrorHandler(w, r, http.StatusInternalServerError, "Failed packaging pokemon transfer request")
+		return
+	}
+
+	log.Println("Sucessfully transfered pokemon from: " + transferReq.Location)
 	w.WriteHeader(http.StatusOK)
 	w.Write(write_resp)
 }

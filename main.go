@@ -15,10 +15,10 @@ func main() {
 	r.Handle("/pokemon/", &pkmn.PokemonHandler{})
 	r.Handle("/pc/", &pc.PCHandler{
 		ActiveTeam: pc.PokemonTeam{
-			PokemonTeam: make([]pkmn.ActivePokemon, 0),
+			PokemonTeam: make(map[string]pkmn.ActivePokemon),
 		},
 		PkmnBox: pc.PokemonStorageBox{
-			PCBox: make([]pkmn.ActivePokemon, 0),
+			PCBox: make(map[string]pkmn.ActivePokemon),
 		},
 	})
 
